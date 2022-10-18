@@ -1,4 +1,4 @@
-
+# fork of [hansfriedrich/homebridge-feller-wiser](https://github.com/hansfriedrich/homebridge-feller-wiser) to verify SMB
 # Homebridge Feller Wiser plugin
 
 [![verified-by-homebridge](https://badgen.net/badge/homebridge/verified/purple)](https://github.com/homebridge/homebridge/wiki/Verified-Plugins)
