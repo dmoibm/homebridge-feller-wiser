@@ -7,6 +7,8 @@ import { OnOffLoad } from './onoffload';
 import { FellerWiserClient } from './model/fellerwiserclient';
 import { Dimmer } from './dimmer';
 import { Motor } from './motor';
+import { Smb } from './smb';
+import { Load } from './model/load';
 //import { Accessory } from 'hap-nodejs';
 
 
@@ -91,10 +93,12 @@ export class FellerWiserPlatform implements DynamicPlatformPlugin {
                 break;
               case 'dali':
                 new Dimmer(this, existingAccessory);
+                break;
             }
           } else {
-            this.log.info('Adding new accessory:', load.device);
-            const accessory = new this.api.platformAccessory(load.device, uuid);
+            // Get load name or device id and channel if name is empty
+            this.log.info('Adding new accessory:', load.name.trim()? load.name : load.device + '_' + load.channel);
+            const accessory = new this.api.platformAccessory(load.name.trim()? load.name : load.device + '_' + load.channel, uuid);
             accessory.context.load = load;
             switch (load.type) {
               case 'onoff':
@@ -110,6 +114,41 @@ export class FellerWiserPlatform implements DynamicPlatformPlugin {
                 new Dimmer(this, accessory);
                 break;
             }
+            this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+          }
+        }
+      })
+      .catch(error => {
+        this.log.error('error on discovering devices', error);
+      });
+
+    this.fellerClient?.getSmbs()
+      .then(smbs => {
+        for (const smb of smbs) {
+          // edit this as more types are supported than onoff, dim or motor
+          if (smb.job !== 34) {
+            continue;
+          }
+          // For mixed devices, the smb channel can be the same as the load channel. That's why an smb comes before it
+          const uuid = this.api.hap.uuid.generate('smb-' + smb.device_addr.toString(16) + '-' + smb.input_channel);
+          const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid);
+          if (existingAccessory) {
+            this.log.info('Restoring existing smb accessory from cache:', existingAccessory.displayName);
+            new Smb(this, existingAccessory);
+          } else {
+            this.log.info('Adding new smb accessory:', 'smb-' + smb.device_addr.toString(16) + '-' + smb.input_channel);
+            const accessory = new this.api.platformAccessory('smb-' + smb.device_addr.toString(16) + '-' + smb.input_channel, uuid);
+            accessory.context.load = <Load>({
+              id: smb.id,
+              name: 'smb-' + smb.device_addr.toString(16) + '-' + smb.input_channel,
+              unused: false,
+              type: 'smb',
+              device: smb.device_addr.toString(16),
+              channel: smb.input_channel,
+              room: 0,
+              kind: 0,
+            });
+            new Smb(this, accessory);
             this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
           }
         }
